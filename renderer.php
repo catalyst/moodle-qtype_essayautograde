@@ -62,7 +62,6 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
         }
 
         $renderer = $question->get_format_renderer($this->page);
-        $renderer->set_displayoptions($options);
         $linecount = $question->responsefieldlines;
 
         if ($readonly) {
@@ -922,7 +921,7 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
             if (count($phrases)) {
                 $output .= html_writer::alist($phrases, array('class' => 'targetphrases'));
             }
-
+ 
             if ($question->errorcmid && ($cm = get_coursemodule_from_id('', $question->errorcmid))) {
                 $url = new moodle_url("/mod/{$cm->modname}/view.php?id={$cm->id}");
                 $a = (object)array(
