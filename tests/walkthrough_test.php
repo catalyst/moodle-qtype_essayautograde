@@ -208,7 +208,7 @@ class qtype_essayautograde_walkthrough_testcase extends qbehaviour_walkthrough_t
 
         $prefix = $this->quba->get_field_prefix($this->slot);
         $fieldname = $prefix . 'answer';
-        $response = 'Once upon a time there was a little green frog.';
+        $response = 'lorem ipsum';
 
         // Check the initial state.
         $this->check_current_state(question_state::$todo);
