@@ -242,8 +242,8 @@ class qtype_essayautograde_walkthrough_testcase extends qbehaviour_walkthrough_t
         $this->quba->finish_all_questions();
 
         // Verify.
-        $this->check_current_state(question_state::$gaveup);
-        $this->check_current_mark(null);
+        $this->check_current_state(question_state::$gradedwrong);
+        $this->check_current_mark(0.0);
         $this->render();
         $this->assertMatchesRegularExpression('/' . preg_quote(s($response), '/') . '/', $this->currentoutput);
         $this->check_current_output(
