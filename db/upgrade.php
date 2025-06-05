@@ -164,6 +164,55 @@ function xmldb_qtype_essayautograde_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, $newversion, $plugintype, $pluginname);
     }
 
+    $newversion = 2023040723;
+    if ($oldversion < $newversion) {
+        // Add "allowsimilarity" column to denote maximum allowable level of similarity.
+        xmldb_qtype_essayautograde_addfields($dbman, $pluginoptionstable, 'allowsimilarity');
+        upgrade_plugin_savepoint(true, $newversion, $plugintype, $pluginname);
+    }
+
+    $newversion = 2025030434;
+    if ($oldversion < $newversion) {
+        // Add AI fields: "aiassistant" and "aipercent".
+        xmldb_qtype_essayautograde_addfields($dbman, $pluginoptionstable, 'aiassistant, aipercent');
+        upgrade_plugin_savepoint(true, $newversion, $plugintype, $pluginname);
+    }
+
+    $newversion = 2025032237;
+    if ($oldversion < $newversion) {
+
+        $select = 'qasd.*';
+
+        $from = '{question} q,'.
+                '{question_attempts} qa,'.
+                '{question_attempt_steps} qas,'.
+                '{question_attempt_step_data} qasd';
+
+        $where = '(q.qtype = ? OR q.qtype = ?) AND '.
+                 'q.id = qa.questionid AND '.
+                 'qa.id = qas.questionattemptid AND '.
+                 'qas.id = qasd.attemptstepid AND '.
+                 $DB->sql_like('qasd.name', '?');
+
+        $params = ['essayautograde', 'speakautograde', '-ai%'];
+
+        if ($records = $DB->get_records_sql("SELECT $select FROM $from WHERE $where", $params)) {
+            foreach ($records as $id => $record) {
+                $record->name = '_'.substr($record->name, 1);
+                $DB->update_record('question_attempt_step_data', $record);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, $newversion, $plugintype, $pluginname);
+    }
+
+    $newversion = 2025040342;
+    if ($oldversion < $newversion) {
+        // Align the default value of the "allowsimilarity" field with its value in install.xml.
+        xmldb_qtype_essayautograde_addfields($dbman, $pluginoptionstable, 'allowsimilarity');
+        upgrade_plugin_savepoint(true, $newversion, $plugintype, $pluginname);
+    }
+
     return true;
 }
 
@@ -194,6 +243,7 @@ function xmldb_qtype_essayautograde_addfields($dbman, $pluginoptionstable, $fiel
 
         // Fields that are inherited from the "Essay" question type.
         // We omit "id" and "questionid" because they are indexed fields and therefore hard to update.
+        // We include "allowsimilarity", because it relates to the template and sample.
         new xmldb_field('responseformat',         XMLDB_TYPE_CHAR,   16, null, XMLDB_NOTNULL, null, 'editor'),
         new xmldb_field('responserequired',       XMLDB_TYPE_INTEGER, 2, null, XMLDB_NOTNULL, null, 1),
         new xmldb_field('responsefieldlines',     XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, 15),
@@ -203,10 +253,15 @@ function xmldb_qtype_essayautograde_addfields($dbman, $pluginoptionstable, $fiel
         new xmldb_field('attachmentsrequired',    XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, 0),
         new xmldb_field('graderinfo',             XMLDB_TYPE_TEXT),
         new xmldb_field('graderinfoformat',       XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, 0),
+        // AI fields added in Moodle 4.5.
+        new xmldb_field('aiassistant',            XMLDB_TYPE_CHAR,  255, null, XMLDB_NOTNULL),
+        new xmldb_field('aipercent',              XMLDB_TYPE_INTEGER, 6, null, XMLDB_NOTNULL, null, 0),
+        // Note: graderinfo is used as prompt for the AI assistant
         new xmldb_field('responsetemplate',       XMLDB_TYPE_TEXT),
         new xmldb_field('responsetemplateformat', XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, 0),
         new xmldb_field('responsesample',         XMLDB_TYPE_TEXT),
         new xmldb_field('responsesampleformat',   XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, 0),
+        new xmldb_field('allowsimilarity',        XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, 10),
         new xmldb_field('maxbytes',               XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, 0),
         new xmldb_field('filetypeslist',          XMLDB_TYPE_TEXT),
 

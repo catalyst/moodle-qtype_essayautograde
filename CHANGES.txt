@@ -2,6 +2,60 @@
 Change log for qtype_essayautograde
 ========================================
 
+2025-04-14 (43)
+ - fix compatability with Moodle 5.x AI manager
+
+2025-04-03 (42)
+ - unify settings of fields in the DB with those in in install.xml
+
+2025-03-24 (41)
+ - fix upgrade SQL that caused error son MSSL, PostgreSQL and Oracle
+
+2025-03-24 (40)
+ - fix small SQL syntax error in store_ai_directly method
+
+2025-03-24 (39)
+ - modify renderer.php and question.php to accommodate speakautograde attempt steps
+
+2025-03-05 (35)
+ - fix various preventing complete GIFT import of all settings
+
+2025-02-28 (33)
+ - fix export to GIFT of target phrases
+
+2024-12-12 (32)
+ - fix incorrect 'format' parameter when called format_text from within renderer.php
+
+2024-05-31 (31)
+ - finish inmplementation import/export of percent divisor values for target phrases
+
+2024-04-12 (30)
+ - store, implment and display target phrase percents using an integer percent and a divisor
+
+2024-04-11 (29)
+ - ensure that count/min/max strings are fetched from the Essay (auto-grade) plugin, so as not to cause error in the Speak (auto-grade) plugin.
+
+2024-04-11 (28)
+ - improve detection of context when deciding whether to display feedbackto students and/or teachers
+
+2024-03-19 (27)
+ - qtype_ordering add new strings to allow allow fractional percents to be awarded for target phrases
+
+2023-04-09 (25)
+ - bump the version number in order to push changes to plugins repository on Moodle.org
+
+2023-04-09 (24)
+ - (#72) remove use of uppercase $TYPE variable as it was easily confused with $type; (#73) add missing function to check feedback fields during xml/gift import
+
+2023-04-07 (23)
+ - add new field, allowsimilarity which allows teacher to specify the maximum allowable level of similarity between a student response and the response template or sample response.
+
+2023-03-29 (22)
+ - fix setting of display options on Moodle >= 4.x and bump version.
+
+2023-03-29 (21)
+ - fix setting of display options on Moodle >= 4.x
+
 2022-10-18 (19)
  - fix bug that prevented display of images in question text.
 

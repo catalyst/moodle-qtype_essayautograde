@@ -56,40 +56,46 @@ class qtype_essayautograde extends question_type {
     const ITEM_TYPE_FILES = 5;
 
     /** Show/hide values */
-    const SHOW_NONE                  = 0;
-    const SHOW_STUDENTS_ONLY         = 1;
-    const SHOW_TEACHERS_ONLY         = 2;
+    const SHOW_NONE = 0;
+    const SHOW_STUDENTS_ONLY = 1;
+    const SHOW_TEACHERS_ONLY = 2;
     const SHOW_TEACHERS_AND_STUDENTS = 3;
 
-    /** @var array Combined feedback fields */
-    public $feedbackfields = array('correctfeedback', 'partiallycorrectfeedback', 'incorrectfeedback');
+    /** @var array editor fields */
+    public $editorfields = ['graderinfo', 'responsetemplate', 'responsesample'];
+
+    /** @var array feedback fields */
+    public $feedbackfields = ['correctfeedback', 'incorrectfeedback', 'partiallycorrectfeedback'];
 
     public function is_manual_graded() {
         return true;
     }
 
     public function extra_question_fields() {
-        return array($this->plugin_name().'_options', // DB table name
-                     'responseformat', 'responserequired', 'responsefieldlines',
-                     'attachments', 'attachmentsrequired',
-                     'graderinfo', 'graderinfoformat',
-                     'responsetemplate', 'responsetemplateformat',
-                     'responsesample', 'responsesampleformat',
-                     'minwordlimit', 'maxwordlimit',
-                     'maxbytes', 'filetypeslist',
-                     'enableautograde', 'itemtype', 'itemcount',
-                     'showfeedback', 'showcalculation',
-                     'showtextstats', 'textstatitems',
-                     'showgradebands', 'addpartialgrades','showtargetphrases',
-                     'errorcmid', 'errorpercent',
-                     'errorfullmatch', 'errorcasesensitive', 'errorignorebreaks',
-                     'correctfeedback', 'correctfeedbackformat',
-                     'incorrectfeedback', 'incorrectfeedbackformat',
-                     'partiallycorrectfeedback', 'partiallycorrectfeedbackformat');
+        return [
+            $this->plugin_name().'_options', // DB table name
+            'responseformat', 'responserequired', 'responsefieldlines',
+            'attachments', 'attachmentsrequired',
+            'graderinfo', 'graderinfoformat',
+            'aiassistant', 'aipercent',
+            'responsetemplate', 'responsetemplateformat',
+            'responsesample', 'responsesampleformat', 'allowsimilarity',
+            'minwordlimit', 'maxwordlimit',
+            'maxbytes', 'filetypeslist',
+            'enableautograde', 'itemtype', 'itemcount',
+            'showfeedback', 'showcalculation',
+            'showtextstats', 'textstatitems',
+            'showgradebands', 'addpartialgrades','showtargetphrases',
+            'errorcmid', 'errorpercent',
+            'errorfullmatch', 'errorcasesensitive', 'errorignorebreaks',
+            'correctfeedback', 'correctfeedbackformat',
+            'incorrectfeedback', 'incorrectfeedbackformat',
+            'partiallycorrectfeedback', 'partiallycorrectfeedbackformat'
+        ];
     }
 
     public function response_file_areas() {
-        return array('attachments', 'answer');
+        return ['attachments', 'answer'];
     }
 
     public function get_question_options($question) {
@@ -122,7 +128,7 @@ class qtype_essayautograde extends question_type {
         }
 
         // Retrieve OLD values from the database.
-        if ($options = $DB->get_record($optionstable, array('questionid' => $questionid))) {
+        if ($options = $DB->get_record($optionstable, ['questionid' => $questionid])) {
             $optionsid = $options->id;
             $errorpercent = $options->errorpercent;
             $addpartialgrades = $options->addpartialgrades;
@@ -133,40 +139,43 @@ class qtype_essayautograde extends question_type {
         }
 
         // Set NEW values for the question options
-        $options = (object)array(
-            'id'                  => $optionsid,
-            'questionid'          => $questionid,
-            'responseformat'      => $formdata->responseformat,
-            'responserequired'    => $formdata->responserequired,
-            'responsefieldlines'  => $formdata->responsefieldlines,
-            'attachments'         => $formdata->attachments,
+        $options = (object)[
+            'id' => $optionsid,
+            'questionid' => $questionid,
+            'responseformat' => $formdata->responseformat,
+            'responserequired' => $formdata->responserequired,
+            'responsefieldlines' => $formdata->responsefieldlines,
+            'attachments' => $formdata->attachments,
             'attachmentsrequired' => $formdata->attachmentsrequired,
-            'graderinfo'          => $graderinfo,
-            'graderinfoformat'    => $formdata->graderinfo['format'],
-            'responsetemplate'    => $formdata->responsetemplate['text'],
+            'graderinfo' => $graderinfo,
+            'graderinfoformat' => $formdata->graderinfo['format'],
+            'aiassistant' => isset($formdata->aiassistant) ? $formdata->aiassistant : '',
+            'aipercent' => isset($formdata->aipercent) ? $formdata->aipercent : 0,
+            'responsetemplate' => $formdata->responsetemplate['text'],
             'responsetemplateformat' => $formdata->responsetemplate['format'],
-            'responsesample'      => $formdata->responsesample['text'],
+            'responsesample' => $formdata->responsesample['text'],
             'responsesampleformat' => $formdata->responsesample['format'],
-            'minwordlimit'        => (empty($formdata->minwordenabled) || empty($formdata->minwordlimit)) ? 0 : $formdata->minwordlimit,
-            'maxwordlimit'        => (empty($formdata->maxwordenabled) || empty($formdata->maxwordlimit)) ? 0 : $formdata->maxwordlimit,
-            'maxbytes'            => isset($formdata->maxbytes) ? $formdata->maxbytes : 0,
-            'filetypeslist'       => isset($formdata->filetypeslist) ? $formdata->filetypeslist : '',
-            'enableautograde'     => isset($formdata->enableautograde) ? $formdata->enableautograde : 1,
-            'itemtype'            => isset($formdata->itemtype) ? $formdata->itemtype : self::ITEM_TYPE_CHARS,
-            'itemcount'           => isset($formdata->itemcount) ? $formdata->itemcount : 1,
-            'showfeedback'        => isset($formdata->showfeedback) ? $formdata->showfeedback : 1,
-            'showcalculation'     => isset($formdata->showcalculation) ? $formdata->showcalculation : 1,
-            'showtextstats'       => isset($formdata->showtextstats) ? $formdata->showtextstats : 1,
-            'textstatitems'       => $textstatitems,
-            'showgradebands'      => isset($formdata->showgradebands) ? $formdata->showgradebands : 1,
-            'addpartialgrades'    => isset($formdata->addpartialgrades) ? $formdata->addpartialgrades : 1,
-            'showtargetphrases'   => isset($formdata->showtargetphrases) ? $formdata->showtargetphrases : 1,
-            'errorcmid'           => isset($formdata->errorcmid) ? $formdata->errorcmid : 0,
-            'errorpercent'        => isset($formdata->errorpercent) ? $formdata->errorpercent : 0,
-            'errorfullmatch'      => isset($formdata->errorfullmatch) ? $formdata->errorfullmatch : 0,
-            'errorcasesensitive'  => isset($formdata->errorcasesensitive) ? $formdata->errorcasesensitive : 0,
-            'errorignorebreaks'   => isset($formdata->errorignorebreaks) ? $formdata->errorignorebreaks : 0,
-        );
+            'allowsimilarity' => isset($formdata->allowsimilarity) ? $formdata->allowsimilarity : 10,
+            'minwordlimit' => (empty($formdata->minwordenabled) || empty($formdata->minwordlimit)) ? 0 : $formdata->minwordlimit,
+            'maxwordlimit' => (empty($formdata->maxwordenabled) || empty($formdata->maxwordlimit)) ? 0 : $formdata->maxwordlimit,
+            'maxbytes' => isset($formdata->maxbytes) ? $formdata->maxbytes : 0,
+            'filetypeslist' => isset($formdata->filetypeslist) ? $formdata->filetypeslist : '',
+            'enableautograde' => isset($formdata->enableautograde) ? $formdata->enableautograde : 1,
+            'itemtype' => isset($formdata->itemtype) ? $formdata->itemtype : self::ITEM_TYPE_CHARS,
+            'itemcount' => isset($formdata->itemcount) ? $formdata->itemcount : 1,
+            'showfeedback' => isset($formdata->showfeedback) ? $formdata->showfeedback : 1,
+            'showcalculation' => isset($formdata->showcalculation) ? $formdata->showcalculation : 1,
+            'showtextstats' => isset($formdata->showtextstats) ? $formdata->showtextstats : 1,
+            'textstatitems' => $textstatitems,
+            'showgradebands' => isset($formdata->showgradebands) ? $formdata->showgradebands : 1,
+            'addpartialgrades' => isset($formdata->addpartialgrades) ? $formdata->addpartialgrades : 1,
+            'showtargetphrases' => isset($formdata->showtargetphrases) ? $formdata->showtargetphrases : 1,
+            'errorcmid' => isset($formdata->errorcmid) ? $formdata->errorcmid : 0,
+            'errorpercent' => isset($formdata->errorpercent) ? $formdata->errorpercent : 0,
+            'errorfullmatch' => isset($formdata->errorfullmatch) ? $formdata->errorfullmatch : 0,
+            'errorcasesensitive' => isset($formdata->errorcasesensitive) ? $formdata->errorcasesensitive : 0,
+            'errorignorebreaks' => isset($formdata->errorignorebreaks) ? $formdata->errorignorebreaks : 0,
+        ];
 
         if ($cmid = $options->errorcmid) {
             $modinfo = get_fast_modinfo($PAGE->course->id);
@@ -192,40 +201,40 @@ class qtype_essayautograde extends question_type {
         $this->save_hints($formdata, false);
 
         // initialize $answers array
-        $answers = array();
+        $answers = [];
 
         ///////////////////////////////////////////////////////
         // add grade bands to $answers
         ///////////////////////////////////////////////////////
 
-        $repeats = (empty($formdata->countbands)  ? 0       : $formdata->countbands);
-        $counts  = (empty($formdata->bandcount)   ? array() : $formdata->bandcount);
-        $percent = (empty($formdata->bandpercent) ? array() : $formdata->bandpercent);
+        $repeats = (empty($formdata->countbands)  ? 0 : $formdata->countbands);
+        $counts  = (empty($formdata->bandcount)   ? [] : $formdata->bandcount);
+        $percent = (empty($formdata->bandpercent) ? [] : $formdata->bandpercent);
 
 		$fraction = floatval(self::ANSWER_TYPE_BAND);
 
-        $items = array();
+        $items = [];
         foreach ($counts as $i => $count) {
             if (array_key_exists($count, $items)) {
                 continue;
             }
-            $items[$count] = (object)array(
+            $items[$count] = (object)[
             	'count' => $count,
             	'percent' => $percent[$i],
             	'fraction' => $fraction
-            );
+            ];
         }
         ksort($items);
 
         foreach ($items as $item) {
-            $answers[] = (object)array(
-                'question'       => $questionid,
-                'answer'         => $item->count,
-                'answerformat'   => $item->percent,
-                'fraction'       => $item->fraction,
-                'feedback'       => '',
+            $answers[] = (object)[
+                'question' => $questionid,
+                'answer' => $item->count,
+                'answerformat' => $item->percent,
+                'fraction' => $item->fraction,
+                'feedback' => '',
                 'feedbackformat' => 0,
-            );
+            ];
         }
 
         ///////////////////////////////////////////////////////
@@ -233,13 +242,14 @@ class qtype_essayautograde extends question_type {
         ///////////////////////////////////////////////////////
 
         $repeats = (empty($formdata->countphrases) ? 0 : $formdata->countphrases);
-        $phrases = (empty($formdata->phrasematch) ? array() : $formdata->phrasematch);
-        $percent = (empty($formdata->phrasepercent) ? array() : $formdata->phrasepercent);
-        $fullmatch = (empty($formdata->phrasefullmatch) ? array() : $formdata->phrasefullmatch);
-        $casesensitive = (empty($formdata->phrasecasesensitive) ? array() : $formdata->phrasecasesensitive);
-        $ignorebreaks = (empty($formdata->phraseignorebreaks) ? array() : $formdata->phraseignorebreaks);
+        $phrases = (empty($formdata->phrasematch) ? [] : $formdata->phrasematch);
+        $percent = (empty($formdata->phrasepercent) ? [] : $formdata->phrasepercent);
+        $divisor = (empty($formdata->phrasedivisor) ? [] : $formdata->phrasedivisor);
+        $fullmatch = (empty($formdata->phrasefullmatch) ? [] : $formdata->phrasefullmatch);
+        $casesensitive = (empty($formdata->phrasecasesensitive) ? [] : $formdata->phrasecasesensitive);
+        $ignorebreaks = (empty($formdata->phraseignorebreaks) ? [] : $formdata->phraseignorebreaks);
 
-        $items = array();
+        $items = [];
         foreach ($phrases as $i => $phrase) {
             if ($phrase=='') {
                 continue;
@@ -257,32 +267,35 @@ class qtype_essayautograde extends question_type {
 			if (array_key_exists($i, $ignorebreaks) && $ignorebreaks[$i]) {
 				$fraction |= self::ANSWER_IGNORE_BREAKS;
 			}
-            $items[$phrase] = (object)array(
+			// The divisor is stored in the decimal part of the fraction.
+			if (array_key_exists($i, $divisor) && $divisor[$i]) {
+			    $fraction += ($divisor[$i] / 100);
+			}
+            $items[$phrase] = (object)[
             	'phrase' => $phrase,
             	'percent' => $percent[$i],
-            	'fraction' => floatval($fraction)
-            );
+            	'fraction' => $fraction,
+            ];
         }
 
         //asort($items);
-        $fraction = floatval(self::ANSWER_TYPE_PHRASE);
         foreach ($items as $item) {
-            $answers[] = (object)array(
-                'question'       => $questionid,
-                'answer'         => '',
-                'answerformat'   => 0,
-                'fraction'       => $item->fraction,
-                'feedback'       => $item->phrase,
+            $answers[] = (object)[
+                'question' => $questionid,
+                'answer' => '',
+                'answerformat' => 0,
+                'fraction' => $item->fraction,
+                'feedback' => $item->phrase,
                 'feedbackformat' => $item->percent,
-            );
+            ];
         }
 
         ///////////////////////////////////////////////////////
         // save $answers i.e. grade bands and target phrases
         ///////////////////////////////////////////////////////
 
-        if (! $oldanswers = $DB->get_records($answerstable, array('question' => $questionid), 'id ASC')) {
-            $oldanswers = array();
+        if (! $oldanswers = $DB->get_records($answerstable, ['question' => $questionid], 'id ASC')) {
+            $oldanswers = [];
         }
 
         // If anything that affects the grade has changed, we force a regrade.
@@ -304,7 +317,7 @@ class qtype_essayautograde extends question_type {
             if ($update) {
                 if (! $DB->update_record($answerstable, $answer)) {
                     $result = get_string('cannotupdaterecord', 'error', "question_answers (id=$answer->id)");
-                    $result = (object)array('error' => $result);
+                    $result = (object)['error' => $result];
                     return $result;
                 }
                 $regrade = true;
@@ -312,7 +325,7 @@ class qtype_essayautograde extends question_type {
             if ($insert) {
                 if (! $answer->id = $DB->insert_record($answerstable, $answer)) {
                     $result = get_string('cannotinsertrecord', 'error', 'question_answers');
-                    $result = (object)array('error' => $result);
+                    $result = (object)['error' => $result];
                     return $result;
                 }
                 $regrade = true;
@@ -321,7 +334,7 @@ class qtype_essayautograde extends question_type {
 
         // Delete remaining old answer records, if any.
         while ($oldanswer = array_shift($oldanswers)) {
-            $DB->delete_records($answerstable, array('id' => $oldanswer->id));
+            $DB->delete_records($answerstable, ['id' => $oldanswer->id]);
         }
 
         // Regrade question if necessary (DISABLED 2021-06-09)
@@ -335,12 +348,11 @@ class qtype_essayautograde extends question_type {
     }
 
     protected function initialise_question_instance(question_definition $question, $questiondata) {
-
         // initialize standard question fields
         parent::initialise_question_instance($question, $questiondata);
 
         // initialize "essayautograde" fields
-        $defaults = self::get_default_values();
+        $defaults = static::get_default_values();
         foreach ($defaults as $name => $default) {
             if (isset($questiondata->options->$name)) {
                 $question->$name = $questiondata->options->$name;
@@ -357,7 +369,7 @@ class qtype_essayautograde extends question_type {
         global $DB;
         $plugin = $this->plugin_name();
         $optionstable = $plugin.'_options';
-        $DB->delete_records($optionstable, array('questionid' => $questionid));
+        $DB->delete_records($optionstable, ['questionid' => $questionid]);
         parent::delete_question($questionid, $contextid);
     }
 
@@ -367,13 +379,13 @@ class qtype_essayautograde extends question_type {
      */
     public function response_formats() {
         $plugin = 'qtype_essay';
-        return array(
-            'editor'           => get_string('formateditor',           $plugin),
+        return [
+            'editor' => get_string('formateditor', $plugin),
             'editorfilepicker' => get_string('formateditorfilepicker', $plugin),
-            'plain'            => get_string('formatplain',            $plugin),
-            'monospaced'       => get_string('formatmonospaced',       $plugin),
-            'noinline'         => get_string('formatnoinline',         $plugin),
-        );
+            'plain' => get_string('formatplain', $plugin),
+            'monospaced' => get_string('formatmonospaced', $plugin),
+            'noinline' => get_string('formatnoinline', $plugin),
+        ];
     }
 
     /**
@@ -381,10 +393,10 @@ class qtype_essayautograde extends question_type {
      */
     public function response_required_options() {
         $plugin = 'qtype_essay';
-        return array(
-            1 => get_string('responseisrequired',  $plugin),
+        return [
+            1 => get_string('responseisrequired', $plugin),
             0 => get_string('responsenotrequired', $plugin),
-        );
+        ];
     }
 
     /**
@@ -392,7 +404,7 @@ class qtype_essayautograde extends question_type {
      */
     public function response_sizes() {
         $plugin = 'qtype_essay';
-        $choices = array();
+        $choices = [];
         for ($lines = 5; $lines <= 40; $lines += 5) {
             $choices[$lines] = get_string('nlines', $plugin, $lines);
         }
@@ -403,13 +415,13 @@ class qtype_essayautograde extends question_type {
      * @return array the choices that should be offered for the number of attachments.
      */
     public function attachment_options() {
-        return array(
+        return [
             0 => get_string('no'),
             1 => '1',
             2 => '2',
             3 => '3',
             -1 => get_string('unlimited'),
-        );
+        ];
     }
 
     /**
@@ -417,12 +429,12 @@ class qtype_essayautograde extends question_type {
      */
     public function attachments_required_options() {
         $plugin = 'qtype_essay';
-        return array(
+        return [
             0 => get_string('attachmentsoptional', $plugin),
             1 => '1',
             2 => '2',
             3 => '3'
-        );
+        ];
     }
 
     public function move_files($questionid, $oldcontextid, $newcontextid) {
@@ -453,7 +465,7 @@ class qtype_essayautograde extends question_type {
         require_once($CFG->dirroot.'/mod/quiz/attemptlib.php');
         require_once($CFG->dirroot.'/mod/quiz/locallib.php');
 
-        $moduleid = $DB->get_field('modules', 'id', array('name' => 'quiz'));
+        $moduleid = $DB->get_field('modules', 'id', ['name' => 'quiz']);
 
         $sql = 'SELECT DISTINCT qs.quizid FROM {quiz_slots} qs WHERE qs.questionid = :questionid';
         $sql = "SELECT cm.id FROM {course_modules} cm WHERE cm.module = :moduleid AND cm.instance IN ($sql)";
@@ -461,9 +473,9 @@ class qtype_essayautograde extends question_type {
         $sql = "SELECT qu.id FROM {question_usages} qu WHERE qu.contextid IN ($sql)";
         $sql = "SELECT qa.* FROM {quiz_attempts} qa WHERE qa.uniqueid IN ($sql)";
 
-        $params = array('questionid'   => $questionid,
-                        'moduleid'     => $moduleid,
-                        'contextlevel' => CONTEXT_MODULE);
+        $params = ['questionid' => $questionid,
+                   'moduleid' => $moduleid,
+                   'contextlevel' => CONTEXT_MODULE];
 
         if (! $attempts = $DB->get_records_sql($sql, $params)) {
             return true; // this question has not been attempted
@@ -495,7 +507,7 @@ class qtype_essayautograde extends question_type {
 
         $sql = 'SELECT DISTINCT qs.quizid FROM {quiz_slots} qs WHERE qs.questionid = :questionid';
         $sql = "SELECT q.* FROM {quiz} q WHERE q.id IN ($sql) ORDER BY q.id";
-        $params = array('questionid' => $questionid);
+        $params = ['questionid' => $questionid];
         if ($quizzes = $DB->get_records_sql($sql, $params)) {
             foreach ($quizzes as $quiz) {
                 quiz_update_all_attempt_sumgrades($quiz);
@@ -517,7 +529,7 @@ class qtype_essayautograde extends question_type {
         $output = '';
 
         $fs = get_file_storage();
-        $textfields = $this->get_text_fields();;
+        $textfields = array_merge($this->editorfields, $this->feedbackfields);
         $formatfield = '/^('.implode('|', $textfields).')format$/';
 
         $fields = $this->extra_question_fields();
@@ -560,6 +572,7 @@ class qtype_essayautograde extends question_type {
                 case self::ANSWER_TYPE_PHRASE:
                     $tag = 'targetphrase';
                     $text = 'feedback';
+
                     if ($fraction & self::ANSWER_FULL_MATCH) {
                         $extra .= ' fullmatch="1"';
                     }
@@ -569,6 +582,14 @@ class qtype_essayautograde extends question_type {
                     if ($fraction & self::ANSWER_IGNORE_BREAKS) {
                         $extra .= ' ignorebreaks="1"';
                     }
+
+                    if ($divisor = floatval($answer->fraction)) {
+                        $divisor -= intval($answer->fraction);
+                        if ($divisor = intval(100 * $divisor)) {
+                            $extra = ' divisor="'.$divisor.'"'.$extra;
+                        }
+                    }
+
                     break;
             }
 
@@ -598,7 +619,7 @@ class qtype_essayautograde extends question_type {
     public function import_from_xml($data, $question, qformat_xml $format, $extra=null) {
         global $PAGE;
 
-        $questiontype = $format->getpath($data, array('@', 'type'), '');
+        $questiontype = $format->getpath($data, ['@', 'type'], '');
         if ($questiontype != 'essayautograde') {
             return false;
         }
@@ -606,16 +627,20 @@ class qtype_essayautograde extends question_type {
         $newquestion = $format->import_headers($data);
         $newquestion->qtype = $questiontype;
 
-        $textfields = $this->get_text_fields();
+        $textfields = array_merge($this->editorfields, $this->feedbackfields);
         $textfield = '/^('.implode('|', $textfields).')$/';
         $formatfield = '/^('.implode('|', $textfields).')format$/';
+
+        // These fields have enabled checkbox.
+        $enabledfields = array('minwordlimit' => 'minwordenabled',
+                               'maxwordlimit' => 'maxwordenabled');
 
         $defaults = self::get_default_values();
         foreach ($defaults as $field => $default) {
             if (preg_match($textfield, $field) || preg_match($formatfield, $field)) {
                 continue;
             }
-            $value = $format->getpath($data, array('#', $field, 0, '#'), $default);
+            $value = $format->getpath($data, ['#', $field, 0, '#'], $default);
             switch ($field) {
                 case 'textstatitems':
                     $value = $this->import_textstatitems($value);
@@ -625,26 +650,32 @@ class qtype_essayautograde extends question_type {
                     break;
             }
             $newquestion->$field = $value;
+
+            if (array_key_exists($field, $enabledfields)) {
+                $enabledfield = $enabledfields[$field];
+                $newquestion->$enabledfield = (empty($value) ? 0 : 1);
+            }
         }
 
         foreach ($textfields as $field) {
-            $fmt = $format->get_format($format->getpath($data, array('#', $field.'format', 0, '#'), 0));
-            $newquestion->$field = $format->import_text_with_files($data, array('#', $field, 0), '', $fmt);
+            $fmt = $format->get_format($format->getpath($data, ['#', $field.'format', 0, '#'], 0));
+            $newquestion->$field = $format->import_text_with_files($data, ['#', $field, 0], '', $fmt);
         }
 
         $newquestion->countbands = 0;
-        $newquestion->bandcount = array();
-        $newquestion->bandpercent = array();
+        $newquestion->bandcount = [];
+        $newquestion->bandpercent = [];
 
         $newquestion->countphrases = 0;
-        $newquestion->phrasematch = array();
-        $newquestion->phrasepercent = array();
-        $newquestion->phrasefullmatch = array();
-        $newquestion->phrasecasesensitive = array();
-        $newquestion->phraseignorebreaks = array();
+        $newquestion->phrasematch = [];
+        $newquestion->phrasepercent = [];
+        $newquestion->phrasedivisor = [];
+        $newquestion->phrasefullmatch = [];
+        $newquestion->phrasecasesensitive = [];
+        $newquestion->phraseignorebreaks = [];
 
         $i = 0; // gradeband index
-        while ($answer = $format->getpath($data, array('#', 'answers', 0, '#', 'gradeband', $i), null)) {
+        while ($answer = $format->getpath($data, ['#', 'answers', 0, '#', 'gradeband', $i], null)) {
             $newquestion->bandcount[$i] = (empty($answer['#']) ? '0' : $answer['#']);
             $newquestion->bandpercent[$i] = (empty($answer['@']['percent']) ? 0 : intval($answer['@']['percent']));
             $i++;
@@ -652,9 +683,10 @@ class qtype_essayautograde extends question_type {
         $newquestion->countbands = $i;
 
         $i = 0; // targetphrase index
-        while ($answer = $format->getpath($data, array('#', 'answers', 0, '#', 'targetphrase', $i), null)) {
+        while ($answer = $format->getpath($data, ['#', 'answers', 0, '#', 'targetphrase', $i], null)) {
             $newquestion->phrasematch[$i] = (empty($answer['#']) ? '' : $answer['#']);
             $newquestion->phrasepercent[$i] = (empty($answer['@']['percent']) ? 0 : intval($answer['@']['percent']));
+            $newquestion->phrasedivisor[$i] = (empty($answer['@']['divisor']) ? 0 : intval($answer['@']['divisor']));
             $newquestion->phrasefullmatch[$i] = (empty($answer['@']['fullmatch']) ? 0 : intval($answer['@']['fullmatch']));
             $newquestion->phrasecasesensitive[$i] = (empty($answer['@']['casesensitive']) ? 0 : intval($answer['@']['casesensitive']));
             $newquestion->phraseignorebreaks[$i] = (empty($answer['@']['ignorebreaks']) ? 0 : intval($answer['@']['ignorebreaks']));
@@ -663,12 +695,47 @@ class qtype_essayautograde extends question_type {
         $newquestion->countphrases = $i;
 
         // Check that the required feedback fields exist.
-        $this->check_ordering_combined_feedback($newquestion);
+        $this->check_feedback_fields($newquestion);
 
         //$format->import_combined_feedback($newquestion, $data, false);
         $format->import_hints($newquestion, $data, false);
 
         return $newquestion;
+    }
+
+    /**
+     * Check that the required editor fields exist
+     *
+     * @param object $question
+     */
+    protected function check_editor_fields($question) {
+        $this->check_text_fields($question, $this->editorfields);
+    }
+
+    /**
+     * Check that the required feedback fields exist
+     *
+     * @param object $question
+     */
+    protected function check_feedback_fields($question) {
+        $this->check_text_fields($question, $this->feedbackfields);
+    }
+
+    /**
+     * Check that the required editor fields exist
+     *
+     * @param object $question
+     */
+    protected function check_text_fields($question, $fields) {
+        $defaultfield = [
+            'text' => '', 'format' => FORMAT_MOODLE,
+            'itemid' => 0, 'files' => null,
+        ];
+        foreach ($fields as $field) {
+            if (empty($question->$field)) {
+                $question->$field = $defaultfield;
+            }
+        }
     }
 
     /**
@@ -688,10 +755,10 @@ class qtype_essayautograde extends question_type {
         }
 
         switch ($question->questiontextformat) {
-            case FORMAT_HTML:     $output .= '[html]';     break;
-            case FORMAT_PLAIN:    $output .= '[plain]';    break;
+            case FORMAT_HTML: $output .= '[html]'; break;
+            case FORMAT_PLAIN: $output .= '[plain]'; break;
             case FORMAT_MARKDOWN: $output .= '[markdown]'; break;
-            case FORMAT_MOODLE:   $output .= '[moodle]';   break;
+            case FORMAT_MOODLE: $output .= '[moodle]'; break;
         }
 
         $output .= $question->questiontext.'{'.PHP_EOL;
@@ -709,7 +776,9 @@ class qtype_essayautograde extends question_type {
             default: $output .= 'none';
         }
 
-        $fields = $this->get_gift_fields();
+        $fields = $this->extra_question_fields();
+        array_shift($fields); // omit table name
+
         foreach ($fields as $field) {
             if ($question->options->$field) {
             	if ($value = $question->options->$field) {
@@ -723,8 +792,8 @@ class qtype_essayautograde extends question_type {
             }
         }
 
-        $bands = array();
-        $phrases = array();
+        $bands = [];
+        $phrases = [];
         foreach ($question->options->answers as $answer) {
             $fraction = intval($answer->fraction);
             switch ($fraction & self::ANSWER_TYPE) {
@@ -735,10 +804,17 @@ class qtype_essayautograde extends question_type {
                     break;
 
                 case self::ANSWER_TYPE_PHRASE:
+                    $percent = intval($answer->feedbackformat);
+                    $divisor = floatval($answer->fraction);
+                    $divisor -= intval($answer->fraction);
+                    $divisor = intval(100 * $divisor);
+                    if ($divisor < 1) {
+                        $divisor = 1;
+                    }
                     $phrases[] = '("'.$answer->feedback.'",'.
-                                      $answer->feedbackformat.'%,'.
+                                      $percent.'%/'.$divisor.','.
                                       ($fraction & self::ANSWER_FULL_MATCH).','.
-                                      ($fraction & self::ANSWER_CASE_SENSITIVE).
+                                      ($fraction & self::ANSWER_CASE_SENSITIVE).','.
                                       ($fraction & self::ANSWER_IGNORE_BREAKS).')';
                     break;
             }
@@ -754,6 +830,27 @@ class qtype_essayautograde extends question_type {
 
         $output .= '}';
         return $output;
+    }
+
+    /**
+     * Return a list of fields that must be present in a Speak (auto-grade) GIFT file.
+     *
+     * @return array of field names that are required in the GIFT file.
+     */
+    public function import_included_fields() {
+        return [];
+    }
+
+    /**
+     * Return a list of fields that should not be present in a Speak (auto-grade) GIFT file.
+     * The fields below a specific to Speak (auto-grade). Others could be added if necessary.
+     *
+     * @return array of field names that are not allowed in the GIFT file.
+     */
+    public function import_excluded_fields() {
+        return ['timelimit', 'language',
+                'audioskin', 'videoskin',
+                'transcriber', 'transcode', 'expiredays'];
     }
 
     /**
@@ -778,14 +875,44 @@ class qtype_essayautograde extends question_type {
         $options = preg_split('/[\r\n]+/', $extra);
         $options = array_filter($options);
 
-        // regular expressions to parse item count and type
-        // we must have this as the first line of the $extra value
+        // If we find any excluded fields, this question is not for us.
+        $fields = $this->import_excluded_fields();
+        if (count($fields)) {
+            $fields = array_map('strtoupper', $fields);
+            $search = '/^('.implode('|', $fields).')=.+$/';
+            $matches = preg_grep($search, $options);
+            if (count($matches)) {
+                return false;
+            }
+        }
+
+        // Ensure we have all the included fields.
+        $fields = $this->import_included_fields();
+        if (count($fields)) {
+            $fields = array_map('strtoupper', $fields);
+            $search = '/^('.implode('|', $fields).')=.+$/';
+            $matches = preg_grep($search, $options);
+            if (count($matches) < count($fields)) {
+                return false;
+            }
+        }
+
+        // Regular expression to parse item count and type.
+        // This is assumed to be the first line of the $extra value.
         $search = '/^(\s*\d*)?\s*(none|chars|words|sentences|paragraphs|files)/';
         if (! preg_match($search, array_shift($options), $matches)) {
             return false;
         }
 
-        $question->qtype = 'essayautograde';
+        if ($question === false || $question === null) {
+            // Yikes the basic question has been wiped out,
+            // so we have to parse the lines again.
+            // This is caused by a bug in question/format.php
+            // see "try_importing_using_qtypes()" method.
+            $question = $this->parse_gift_question($lines);
+        }
+
+        $question->qtype = substr(get_class($this), 6);
         $question->itemcount = trim($matches[1]);
         $question->itemtype = trim($matches[2]);
         switch ($question->itemtype) {
@@ -798,38 +925,50 @@ class qtype_essayautograde extends question_type {
             default: $question->itemtype = self::ITEM_TYPE_NONE;
         }
 
-        // regular expression to detect question option
-        $search = $this->get_gift_fields();
-        $search[] = 'gradebands';
-        $search[] = 'targetphrases';
-        $search = implode('|', $search);
-        $search = '/^('.$search.')\s*=\s*(.*?)$/i';
+        $textfields = array_merge($this->editorfields, $this->feedbackfields);
+        $textfield = '/^('.implode('|', $textfields).')$/';
+        $formatfield = '/^('.implode('|', $textfields).')format$/';
 
-        // regular expressions to parse GRADEBANDS and TARGETPHRASES
+        // regular expression to detect question option
+        $fields = $this->extra_question_fields();
+        array_shift($fields); // Omit table name.
+        $fields = array_map('strtoupper', $fields);
+        $fields[] = 'GRADEBANDS';
+        $fields[] = 'TARGETPHRASES';
+
+        // The following regex will match occurrences of FIELDNAME=VALUE
+        // where VALUE can be a multiline string that is terminated by either
+        // the next FIELDNAME (at the beginning of a line) or end of string.
+        $search = '('.implode('|', $fields).')\s*=\s*(.*?)';
+        $search = '/^'.$search.'(?=\n[A-Z]+\s*=|\z)/ms';
+
+        // regular expressions to parse a single GRADEBAND or TARGETPHRASE
         $gradeband = '/\((\d+),(\d+)%?\)/';
-        $targetphrase = '/\("(.*?)",(\d+)%?,?(\d*),?(\d*),?(\d*)\)/';
+        $targetphrase = '/\("(.*?)",(\d+%?)(\/?\d*),?(\d*),?(\d*),?(\d*)\)/';
 
         $question->countbands = 0;
-        $question->bandcount = array();
-        $question->bandpercent = array();
+        $question->bandcount = [];
+        $question->bandpercent = [];
 
         $question->countphrases = 0;
-        $question->phrasematch = array();
-        $question->phrasepercent = array();
-        $question->phrasefullmatch = array();
-        $question->phrasecasesensitive = array();
-        $question->phraseignorebreaks = array();
+        $question->phrasematch = [];
+        $question->phrasepercent = [];
+        $question->phrasedivisor = [];
+        $question->phrasefullmatch = [];
+        $question->phrasecasesensitive = [];
+        $question->phraseignorebreaks = [];
 
-        foreach ($options as $option) {
+        $options = implode("\n", $options);
+        if (preg_match_all($search, $options, $matches)) {
 
-            if (preg_match($search, $option, $matches)) {
+            for ($i = 0; $i < count($matches[0]); $i++) {
 
-                $name = $matches[1];
-                $value = $matches[2];
+                $name = $matches[1][$i];
+                $value = $matches[2][$i];
 
                 $name = strtolower($name);
                 switch ($name) {
-
+    
                     case 'gradebands':
                         if (preg_match_all($gradeband, $value, $matches)) {
                             $i_max = count($matches[0]);
@@ -840,31 +979,56 @@ class qtype_essayautograde extends question_type {
                             }
                         }
                         break;
-
+    
                     case 'targetphrases':
                         if (preg_match_all($targetphrase, $value, $matches)) {
                             $i_max = count($matches[0]);
                             for ($i=0; $i<$i_max; $i++) {
                                 $question->countphrases++;
                                 array_push($question->phrasematch, $matches[1][$i]);
-                                array_push($question->phrasepercent, $matches[2][$i]);
-                                array_push($question->phrasefullmatch, $matches[3][$i]);
-                                array_push($question->phrasecasesensitive, $matches[4][$i]);
-                                array_push($question->phraseignorebreaks, $matches[5][$i]);
+                                array_push($question->phrasepercent, trim($matches[2][$i], '% '));
+                                array_push($question->phrasedivisor, trim($matches[3][$i], '/ '));
+                                array_push($question->phrasefullmatch, $matches[4][$i]);
+                                array_push($question->phrasecasesensitive, $matches[5][$i]);
+                                array_push($question->phraseignorebreaks, $matches[6][$i]);
                             }
                         }
                         break;
-
+    
                     case 'textstatitems':
                         $question->$name = $this->import_textstatitems($value);
                         break;
-
+    
                     case 'errorcmid':
-					    $question->$name = $this->import_errorcmid($value);
+                        $question->$name = $this->import_errorcmid($value);
                         break;
-
+    
                     default:
-                        $question->$name = $value;
+                        // Textfields need to be stored as an array
+                        // (emulating what is expected from an editor).
+                        if (preg_match($textfield, $name)) {
+                            if (empty($question->$name)) {
+                                $question->$name = ['text' => $value, 'format' => FORMAT_MOODLE];
+                            } else if (is_scalar($question->$name)) {
+                                $question->$name = ['text' => $question->$name, 'format' => FORMAT_MOODLE];
+                            } else if (is_array($question->$name)) {
+                                $question->$name['text'] = $value;
+                            }
+                        // Formatfields need to be stored in the array
+                        // for the corresponding text field.
+                        } else if (preg_match($formatfield, $name)) {
+                            $field = substr($name, -6);
+                            if (empty($question->$field)) {
+                                $question->$field = ['text' => '', 'format' => $value];
+                            } else if (is_scalar($question->$field)) {
+                                $question->$field = ['text' => $question->$field, 'format' => $value];
+                            } else if (is_array($question->$field)) {
+                                $question->$field['format'] = $value;
+                            }
+                        // Otherwise, we have a simple, scalar field.
+                        } else {
+                            $question->$name = $value;
+                        }
                 }
             }
         }
@@ -879,15 +1043,103 @@ class qtype_essayautograde extends question_type {
         }
 
         // fields to mimic HTML editors
-        $question->responsetemplate = array('text' => '', 'format' => FORMAT_MOODLE);
-        $question->responsesample   = array('text' => '', 'format' => FORMAT_MOODLE);
-        $question->graderinfo       = array('text' => '', 'format' => FORMAT_MOODLE,
-                                            'itemid' => '', 'files' => null);
+        $this->check_editor_fields($question);;
 
         // Check that the required feedback fields exist.
-        $this->check_ordering_combined_feedback($question);
+        $this->check_feedback_fields($question);
 
         return $question;
+    }
+
+    /**
+     * Parses GIFT-formatted questions to extract questiontext.
+     *
+     * @return array The parsed questions are stored in the Moodle database.
+     */
+    protected function parse_gift_question($lines) {
+
+        // Initialize the question with default values.
+        $question = (object)static::get_default_values();
+
+        // Remove comments and implode into string.
+        $lines = preg_grep('|^ *//.*|', $lines, PREG_GREP_INVERT);
+        $lines = implode("\n", $lines);
+
+        // Parse the text into individual questions.
+        // Match $1 contains the question name.
+        // Match $2 contains the question text.
+        // Match $3 contains the answer details (including weighting and feedback).
+        $search = '/:: *((?:.|\s)*?) *:: *((?:.|\s)*?) *\{ *((?:.|\s)*?) *\}/s';
+        if (preg_match($search, $lines, $match)) {
+
+            // Extract and format question name, text and feedback.
+            $question->name = $this->format_gift_questionname($match[1]);
+
+            list($text, $format) = $this->format_gift_questiontext($match[2]);
+            $question->questiontext = $text;
+            $question->questiontextformat = $format;
+
+            list($feedback, $format) = $this->format_gift_generalfeedback($match[3]);
+            $question->generalfeedback = $feedback;
+            $question->generalfeedbackformat = $format;
+        }
+
+        return $question;
+    }
+
+    /**
+     * Formats a question name from a GIFT import file.
+     *
+     * @return array The formatted question name.
+     */
+    protected function format_gift_questionname($name) {
+        $name = clean_param($name, PARAM_TEXT);
+        $maxlength = 251;
+        while (core_text::strlen($name) > 255 && $maxlength > 0) {
+            $name = shorten_text($name, $maxlength);
+            $maxlength -= 10;
+        }
+        return trim($name);
+    }
+
+    /**
+     * Formats a question text from a GIFT import file.
+     *
+     * @return array The formatted question text.
+     */
+    protected function format_gift_questiontext($text) {
+        $text = clean_param($text, PARAM_RAW);
+        return $this->parse_text_with_format($text);
+    }
+
+    /**
+     * Formats a question general feedback from a GIFT import file.
+     *
+     * @return array The formatted question general feedback.
+     */
+    protected function format_gift_generalfeedback($text) {
+        $text = clean_param($text, PARAM_TEXT);
+        if ($pos = strrpos($text, '####')) {
+            $text = substr($text, $pos + 4);
+            return $this->parse_text_with_format($text);
+        }
+        return ['', FORMAT_MOODLE];
+    }
+
+    /**
+     * Detects the optional format marker at the beginning
+     * of a string and returns the format and string.
+     *
+     * @return array The text and format.
+     */
+    protected function parse_text_with_format($text) {
+        $search = '/^\[(moodle|html|plain|markdown)\]/i';
+        if (preg_match($search, $text, $match)) {
+            $text = trim(substr($text, strlen($match[0])));
+            $format = constant('FORMAT_'.strtoupper($match[1]));
+            return [$text, $format];
+        }
+        return [$text, FORMAT_MOODLE];
     }
 
     /**
@@ -896,10 +1148,12 @@ class qtype_essayautograde extends question_type {
      * @param object $question
      */
     protected function check_essayautograde_combined_feedback(&$question) {
-        $feedback = array('text' => '',
-                          'format' => FORMAT_MOODLE,
-                          'itemid' => 0,
-                          'files' => null);
+        $feedback = [
+            'text' => '',
+            'format' => FORMAT_MOODLE,
+            'itemid' => 0,
+            'files' => null
+        ];
         foreach ($this->feedbackfields as $field) {
             if (empty($question->$field)) {
                 $question->$field = $feedback;
@@ -958,81 +1212,56 @@ class qtype_essayautograde extends question_type {
     }
 
     /**
-     * get_gift_fields
-     *
-     * @return array of fields used in GIFT format
-     */
-    public function get_text_fields() {
-        return array('graderinfo',
-                     'responsetemplate',
-                     'responsesample',
-                     'correctfeedback',
-                     'incorrectfeedback',
-                     'partiallycorrectfeedback');
-    }
-
-    /**
-     * get_gift_fields
-     *
-     * @return array of fields used in GIFT format
-     */
-    public function get_gift_fields() {
-        $fields = $this->extra_question_fields();
-        array_shift($fields); // omit table name
-        $fields = preg_grep('/^item(type|count)$/', $fields, PREG_GREP_INVERT);
-        $fields = preg_grep('/feedback(format)?$/', $fields, PREG_GREP_INVERT);
-        $fields = preg_grep('/^(response|attachment|grader)/', $fields, PREG_GREP_INVERT);
-        return $fields;
-    }
-
-    /**
      * get_default_values
      *
      * @return array of default values for a new question
      */
     static public function get_default_values($questionid=0, $feedback=false) {
-        $values = array();
+        $values = [];
         if ($questionid) {
             $values['questionid'] = $questionid;
         }
-        $values = array_merge($values, array(
-            'responseformat'       => 'editor',
-            'responserequired'     =>  1,
-            'responsefieldlines'   => 15,
-            'attachments'          =>  0,
-            'attachmentsrequired'  =>  0,
-            'graderinfo'           => '',
-            'graderinfoformat'     =>  0,
-            'responsetemplate'     => '',
+        $values = array_merge($values, [
+            'responseformat' => 'editor',
+            'responserequired' => 1,
+            'responsefieldlines' => 15,
+            'attachments' => 0,
+            'attachmentsrequired' => 0,
+            'graderinfo' => '',
+            'graderinfoformat' => 0,
+            'aiassistant' => '',
+            'aipercent' => 0,
+            'responsetemplate' => '',
             'responsetemplateformat' => 0,
-            'responsesample'       => '',
-            'responsesampleformat' =>  0,
-            'minwordlimit'         =>  0,
-            'maxwordlimit'         =>  0,
-            'maxbytes'             =>  0,
-            'filetypeslist'        => '',
-            'enableautograde'      =>  1,
-            'itemtype'             =>  0,
-            'itemcount'            =>  0,
-            'showfeedback'         =>  0,
-            'showcalculation'      =>  0,
-            'showtextstats'        =>  0,
-            'textstatitems'        => '',
-            'showgradebands'       =>  0,
-            'addpartialgrades'     =>  0,
-            'showtargetphrases'    =>  0,
-            'errorcmid'            =>  0,
-            'errorpercent'         =>  0,
-        ));
+            'responsesample' => '',
+            'responsesampleformat' => 0,
+            'allowsimilarity' => 10,
+            'minwordlimit' => 0,
+            'maxwordlimit' => 0,
+            'maxbytes' => 0,
+            'filetypeslist' => '',
+            'enableautograde' => 1,
+            'itemtype' => 0,
+            'itemcount' => 0,
+            'showfeedback' => 0,
+            'showcalculation' => 0,
+            'showtextstats' => 0,
+            'textstatitems' => '',
+            'showgradebands' => 0,
+            'addpartialgrades' => 0,
+            'showtargetphrases' => 0,
+            'errorcmid' => 0,
+            'errorpercent' => 0,
+        ]);
         if ($feedback) {
-            $values = array_merge($values, array(
-                'correctfeedback'       => '',
-                'correctfeedbackformat' =>  0,
-                'incorrectfeedback'     => '',
+            $values = array_merge($values, [
+                'correctfeedback' => '',
+                'correctfeedbackformat' => 0,
+                'incorrectfeedback' => '',
                 'incorrectfeedbackformat' => 0,
                 'partiallycorrectfeedback' => '',
                 'partiallycorrectfeedbackformat' => 0
-            ));
+            ]);
         }
         return $values;
     }

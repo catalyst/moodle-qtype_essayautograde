@@ -42,7 +42,12 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
 
         $question = $qa->get_question();
         $response = $qa->get_last_qt_data();
+
+        // Generate all the stats for this response.
         $question->update_current_response($response, $options);
+        // This is probably rather wasteful.  A better solution
+        // would be to store the values using $step->set_qt_var()
+        // in question/type/essayautograde/question.php.
 
         // format question text
         $qtext = $question->format_questiontext($qa);
@@ -62,7 +67,10 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
         }
 
         $renderer = $question->get_format_renderer($this->page);
-        $renderer->set_displayoptions($options);
+        if (method_exists($renderer, 'set_displayoptions')) {
+            $renderer->set_displayoptions($options); // Moodle 4.x and later
+        }
+
         $linecount = $question->responsefieldlines;
 
         if ($readonly) {
@@ -81,7 +89,9 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
                     $end = strlen($answer);
                 }
                 $currentresponse = $question->get_current_response();
-                $answer = substr_replace($answer, $currentresponse->errortext, $start, $end - $start);
+                if ($currentresponse->errortext) {
+                    $answer = substr_replace($answer, $currentresponse->errortext, $start, $end - $start);
+                }
             }
         } else {
             $answer = $renderer->response_area_input('answer', $qa, $step, $linecount, $options->context);
@@ -130,15 +140,18 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
                 $warning = ' '.html_writer::tag('span', $warning, $params);
             }
 
+            // The strings below have to come from the essayautograde plugin.
+            $plugin = 'qtype_essayautograde';
+
             $label = 'count'.$itemtype.'label';
-            $label = get_string($label, $this->plugin_name()).$separator;
+            $label = get_string($label, $plugin).$separator;
             $label = html_writer::tag('b', $label, array('class' => 'labeltext'));
             $value = html_writer::tag('i', $countitems, array('class' => 'value')).$warning;
             $itemcount .= html_writer::tag('p', $label.' '.$value, array('class' => 'countitems my-0'));
 
             if ($minitems) {
                 $label = 'min'.$itemtype.'label';
-                $label = get_string($label, $this->plugin_name()).$separator;
+                $label = get_string($label, $plugin).$separator;
                 $label = html_writer::tag('b', $label, array('class' => 'labeltext'));
                 $value = html_writer::tag('i', $minitems, array('class' => 'value'));
                 $itemcount .= html_writer::tag('p', $label.' '.$value, array('class' => 'minitems my-0'));
@@ -146,7 +159,7 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
 
             if ($maxitems) {
                 $label = 'max'.$itemtype.'label';
-                $label = get_string($label, $this->plugin_name()).$separator;
+                $label = get_string($label, $plugin).$separator;
                 $label = html_writer::tag('b', $label, array('class' => 'labeltext'));
                 $value = html_writer::tag('i', $maxitems, array('class' => 'value'));
                 $itemcount .= html_writer::tag('p', $label.' '.$value, array('class' => 'maxitems my-0'));
@@ -166,7 +179,7 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
         $result .= html_writer::tag('div', $qtext, array('class' => 'qtext'));
         $result .= html_writer::start_tag('div', array('class' => 'ablock'));
         $result .= html_writer::tag('div', $answer, array('class' => 'answer'));
-        if ($itemcount) {
+        if ($itemcount && $this->show_itemcount()) {
             // Mimic the id created by "response_area_input()" in "essay/renderer.php".
             // The data-xxx values are needed by the javascript in "mobile/mobile.js".
             $params = array('id' => 'id_'.$qa->get_qt_field_name('answer_itemcount'),
@@ -176,6 +189,13 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
                             'data-maxitems' => $maxitems);
             $result .= html_writer::tag('div', $itemcount, $params);
         }
+
+        if ($qa->get_state() == question_state::$gradedwrong) {
+            if ($error = $question->get_validation_error($step->get_qt_data())) {
+                $result .= html_writer::tag('div', $error, array('class' => 'validationerror'));
+            }
+        }
+
         $result .= html_writer::tag('div', $files, array('class' => 'attachments'));
         $result .= html_writer::end_tag('div'); // div.ablock
 
@@ -188,6 +208,15 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
         $PAGE->requires->js_call_amd('qtype_essayautograde/essayautograde', 'init', $params);
 
         return $result;
+    }
+
+    /**
+     * Specify whether to show (TRUE) the item count DIV, or not (FALSE).
+     *
+     * @return bool
+     */
+    public function show_itemcount() {
+        return true;
     }
 
     /**
@@ -361,7 +390,7 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
             $plugin = $this->plugin_name();
             $question = $qa->get_question();
             $comment = $question->graderinfo;
-            $comment = $question->format_text($comment, $comment, $qa, $plugin, 'graderinfo', $question->id);
+            $comment = $question->format_text($comment, $question->graderinfoformat, $qa, $plugin, 'graderinfo', $question->id);
             $comment = html_writer::nonempty_tag('div', $comment, array('class' => 'graderinfo'));
         } else {
             $comment = ''; // comment is not currently editable
@@ -415,6 +444,16 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
             $gradeband = array_search($currentresponse->completepercent, $gradeband);
             $gradeband++;
 
+            if ($question->ai && $question->ai->grademax && $question->ai->feedback) {
+                $aigrade = $question->ai->grade;
+                $aigrademax = $question->ai->grademax;
+                $aifeedback = $question->ai->feedback;
+            } else {
+                $aigrade = $qa->get_last_qt_var('_aigrade', 0);
+                $aigrademax = $qa->get_last_qt_var('_aigrademax', 100);
+                $aifeedback = $qa->get_last_qt_var('_aifeedback', '');
+            }
+
             $itemtype = '';
             switch ($question->itemtype) {
                 case $question->plugin_constant('ITEM_TYPE_CHARS'): $itemtype = get_string('chars', $plugin); break;
@@ -425,16 +464,11 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
             }
             $itemtype = core_text::strtolower($itemtype);
 
-            if (empty($options->context)) {
-                // Shouldn't happen !!
+            $context = $this->get_best_context($options, $question);
+            if ($showteacher = has_capability('mod/quiz:grade', $context)) {
                 $showstudent = false;
-                $showteacher = false;
             } else {
-                if ($showteacher = has_capability('mod/quiz:grade', $options->context)) {
-                    $showstudent = false;
-                } else {
-                    $showstudent = has_capability('mod/quiz:attempt', $options->context);
-                }
+                $showstudent = has_capability('mod/quiz:attempt', $context);
             }
 
             $show = array(
@@ -524,10 +558,16 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
 
                 // Target phrases.
                 foreach ($currentresponse->myphrases as $myphrase => $phrase) {
-                    $percent = $currentresponse->phrases[$phrase];
-                    $a = (object)array('percent' => $percent,
+                    $grade = $currentresponse->phrases[$phrase];
+                    $a = (object)array('percent' => $grade.'%',
                                        'phrase'  => $myphrase);
                     $details[] = $this->get_calculation_detail('explanationtargetphrase', $plugin, $a);
+                }
+
+                // AI generated grade
+                if ($question->aipercent && $aigrademax) {
+                    $aigrade = round($question->aipercent * ($aigrade / $aigrademax), 1);
+                    $details[] = "+ ({$aigrade}% for AI-generated grade: ($aigrade / $aigrademax) x {$question->aipercent}%)";
                 }
 
                 // Common errors.
@@ -556,7 +596,12 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
                     $details[] = $this->get_calculation_detail('explanationnotenough', $plugin, $a);
                 }
 
-                if ($details = implode(html_writer::empty_tag('br'), $details)) {
+                if ($count = count($details)) {
+
+                    $details = implode(html_writer::empty_tag('br'), $details);
+                    if ($count >= 2) {
+                        $details = "($details)";
+                    }
 
                     $step = $qa->get_last_step_with_behaviour_var('finish');
                     if ($step->get_id()) {
@@ -675,13 +720,12 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
             if ($showgradebands) {
                 $details = array();
                 $i = 1; // grade band index
-                foreach ($currentresponse->bands as $count => $percent) {
+                foreach ($currentresponse->bands as $count => $grade) {
                     $detail = get_string('gradeband', $plugin);
                     $detail = str_replace('{no}', $i++, $detail);
                     $details[] = html_writer::tag('dt', $detail);
-                    $detail =  get_string('bandcount', $plugin).' '.$count.' '.
-                               get_string('bandpercent', $plugin).' '.
-                               get_string('percentofquestiongrade', $plugin, $percent);
+                    $a = (object)array('count' => $count, 'percent' => $grade.'%');
+                    $detail = get_string('bandtext', $plugin, $a);
                     $details[] = html_writer::tag('dd', $detail);
                 }
                 $output .= html_writer::tag('h5', get_string('gradebands', $plugin));
@@ -691,10 +735,12 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
             // Show target phrases, if required.
             if ($showtargetphrases) {
                 $details = array();
-                foreach ($currentresponse->phrases as $match => $percent) {
-                    $details[] = get_string('phrasematch', $plugin).' "'.$match.'" '.
-                                 get_string('phrasepercent', $plugin).' '.
-                                 get_string('percentofquestiongrade', $plugin, $percent);
+                foreach ($currentresponse->phrases as $match => $grade) {
+                    $a = (object)[
+                        'phrase' => '"'.$match.'"',
+                        'percent' => $grade.'%',
+                    ];
+                    $details[] = get_string('phrasetext', $plugin, $a);
                 }
                 $output .= html_writer::tag('h5', get_string('targetphrases', $plugin));
                 $output .= html_writer::alist($details);
@@ -778,7 +824,7 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
                     $output .= html_writer::tag('td', $count.' / '.$maxcount, array('class' => 'cell c1'));
                     $output .= html_writer::end_tag('tr');
                     $i = 0;
-                    foreach ($currentresponse->phrases as $phrase => $percent) {
+                    foreach ($currentresponse->phrases as $phrase => $grade) {
                         if (in_array($phrase, $currentresponse->myphrases)) {
                             $status = 'present';
                             $img = $this->feedback_image(100.00);
@@ -838,6 +884,14 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
 
                 $output .= html_writer::end_tag('table');
             }
+
+            if ($aifeedback) {
+                $output .= html_writer::tag('h5', 'AI Feedback');
+                $output .= html_writer::tag('p', $aifeedback);
+                if ($aigrademax) {
+                    $output .= html_writer::tag('p', html_writer::tag('b', 'AI Grade:')." {$aigrade} / {$aigrademax}");
+                }
+            }
         }
 
         if ($feedback = $this->combined_feedback($qa)) {
@@ -846,6 +900,50 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
         }
 
         return $output;
+    }
+
+    /**
+     * Find the best context for detecting capabilities
+     * for a teacher "mod_quiz:/grade" or student "mod_quiz:attempt"
+     *
+     * @param array $options of display options for this question
+     * @param object $question
+     * @return object of the best context for checking capabilities
+     */
+    protected function get_best_context($options, $question) {
+        global $PAGE;
+
+        // These are the context levels that we are interested in.
+        $levels = [CONTEXT_COURSE, CONTEXT_MODULE];
+
+        if ($options && $options->context) {
+            if (in_array($options->context->contextlevel, $levels)) {
+                return $options->context;
+            }
+        }
+
+        if ($PAGE && $PAGE->context) {
+            if (in_array($PAGE->context->contextlevel, $levels)) {
+                return $PAGE->context;
+            }
+        }
+
+        if ($question && $question->contextid) {
+            $context = context::instance_by_id($question->contextid);
+            if (in_array($context->contextlevel, $levels)) {
+                return $context;
+            }
+        }
+
+        // Otherwise we have another kind of context, i.e.
+        // CONTEXT_USER, CONTEXT_COURSECAT, CONTEXT_SYSTEM.
+        if ($options && $options->context) {
+            return $options->context;
+        }
+        if ($PAGE && $PAGE->context) {
+            return $PAGE->context;
+        }
+        return null; // Shouldn't happen !!
     }
 
     protected function get_calculation_detail($name, $plugin, $a, $prefix='+ ') {
@@ -895,23 +993,26 @@ class qtype_essayautograde_renderer extends qtype_with_combined_feedback_rendere
 
             $answers = $question->get_answers();
             foreach ($answers as $answer) {
-                switch (intval($answer->fraction)) {
+
+                switch ($answer->type) {
 
                     case $ANSWER_TYPE_BAND:
                         if ($percent <= $answer->answerformat) {
                             $percent = $answer->answerformat;
-                            $band = get_string('bandcount', $plugin).' '.$answer->answer.' '.
-                                    get_string('bandpercent', $plugin).' '.
-                                    get_string('percentofquestiongrade', $plugin, $answer->answerformat);
-                            $bands = array($band);
+                            $a = (object)[
+                                'count' => $answer->answer,
+                                'percent' => $answer->answerformat.'%'
+                            ];
+                            $bands = array(get_string('bandtext', $plugin, $a));
                         }
                         break;
 
                     case $ANSWER_TYPE_PHRASE:
-                        $phrase = get_string('phrasematch', $plugin).' "'.$answer->feedback.'" '.
-                                  get_string('phrasepercent', $plugin).' '.
-                                  get_string('percentofquestiongrade', $plugin, $answer->feedbackformat);
-                        $phrases[] = $phrase;
+                        $a = (object)[
+                            'phrase' => $answer->feedback,
+                            'percent' => round($answer->realpercent, 2).'%',
+                        ];
+                        $phrases[] = get_string('phrasetext', $plugin, $a);
                         break;
                 }
             }

@@ -39,10 +39,23 @@ $string['addpartialgrades_help'] = 'If this option is enabled, grades will be ad
 $string['addpartialgrades'] = 'Award partial grades?';
 $string['addsingleband'] = 'Add 1 more grade band';
 $string['addsinglephrase'] = 'Add 1 more target phrase';
+$string['aiassistant_help'] = 'Select the AI grading assistant, if any, that you wish to use to generate feedback and preliminary grades for student submissions.';
+$string['aiassistant'] = 'AI assistant';
+$string['aiassistantnotenabled'] = 'There are currently no text-generating AI assistants enabled on this Moodle site. Please ask your Moodle administrator to add settings for an AI provider (Site administration > AI)';
+$string['aipercent_help'] = 'Select the percentage contribution of the AI grade to the total grade for this question.';
+$string['aipercent'] = 'AI grade';
+$string['aiprompt_help'] = 'Add a prompt suitable for sending to an AI assistant in order to get feedback and/or a grade for work submitted by students.';
+$string['aiprompt'] = 'AI prompt';
+$string['aisettings'] = 'AI Settings';
+$string['allowsimilarity_help'] = 'The maximum level of similarity that is allowed between a student\'s response and the response template or sample response. The higher this value, the more similar the student\'s response can be to the template or sample. Conversely, the lower the value, the more different the student\'s response must be from the template or sample. Adjusting this value can affect the level of originality and detail required from students in their responses.';
+$string['allowsimilarity'] = 'Allow similarity?';
+$string['allowsimilaritypercent'] = 'Yes - allow up to {$a}% similarity';
 $string['auto'] = 'Auto';
 $string['autograding'] = 'Auto-grading';
-$string['bandcount'] = 'For';
-$string['bandpercent'] = 'or more items, award';
+$string['bandtext'] = 'For {$a->count} or more items, award {$a->percent} of the question grade.';
+$string['bandtext1'] = 'For ';
+$string['bandtext2'] = 'or more items, award';
+$string['bandtext3'] = 'of the question grade.';
 $string['chars'] = 'Characters';
 $string['charspersentence'] = 'Characters per sentence';
 $string['commonerror'] = 'Common error';
@@ -74,10 +87,10 @@ $string['explanationnotenough'] = '{$a->count} {$a->itemtype} is less than the m
 $string['explanationoverride'] = 'Later, {$a->datetime}, the grade for this essay was manually set to {$a->manualgrade}.';
 $string['explanationpartialband'] = '{$a->percent}% for partially completing Grade band [{$a->gradeband}]';
 $string['explanationpenalty'] = 'However, {$a->penaltytext} was deducted for checking the response before submission.';
-$string['explanationrawpercent'] = 'The raw percentage grade for this essay is {$a->rawpercent}% <br /> = ({$a->details}).';
+$string['explanationrawpercent'] = 'The raw percentage grade for this essay is {$a->rawpercent}% <br /> = {$a->details}.';
 $string['explanationremainingitems'] = '{$a->percent}% for the remaining {$a->count} {$a->itemtype}';
 $string['explanationseecomment'] = '(see comment below)';
-$string['explanationtargetphrase'] = '{$a->percent}% for including the phrase "{$a->phrase}"';
+$string['explanationtargetphrase'] = '{$a->percent} for including the phrase "{$a->phrase}"';
 $string['feedback'] = 'Feedback';
 $string['feedbackhintbreaks'] = 'Did you use too many line breaks?';
 $string['feedbackhintchars'] = 'Did you write the required number of characters?';
@@ -124,7 +137,6 @@ $string['minimumfilecount'] = 'Minimum number of files: {$a}';
 $string['missing'] = 'Missing';
 $string['overflow'] = 'Overflow';
 $string['paragraphs'] = 'Paragraphs';
-$string['percentofquestiongrade'] = '{$a}% of the question grade.';
 $string['phrasebehavior_help'] = 'These settings refine the matching behavior for this target phrase.';
 $string['phrasebehavior'] = 'Target phrase [{no}] behavior';
 $string['phrasecasesensitiveno'] = 'Match is case-insensitive.';
@@ -133,8 +145,20 @@ $string['phrasefullmatchno'] = 'Match full or partial words.';
 $string['phrasefullmatchyes'] = 'Match full words only.';
 $string['phraseignorebreaksno'] = 'Recognize line breaks.';
 $string['phraseignorebreaksyes'] = 'Ignore line breaks.';
-$string['phrasematch'] = 'If';
-$string['phrasepercent'] = 'is used, award';
+
+$string['phrasematch'] = 'Phrase match';
+$string['phrasepercent'] = 'Phrase percent';
+$string['phrasedivisor'] = 'Phrase divisor';
+
+$string['phrasetext'] = 'If {$a->phrase} is used, award {$a->percent} of the question grade.';
+$string['phrasetext1'] = 'If';
+$string['phrasetext2'] = 'is used, award';
+$string['phrasetext3'] = '';
+$string['phrasetext4'] = 'of the question grade.';
+
+$string['phrasepercentexactly'] = 'exactly';
+$string['phrasepercentdividedby'] = 'divided by {$a}';
+
 $string['pleaseattachfiles'] = 'Please attach the required number of files.';
 $string['pleaseinputtext'] = 'Please input your response in the text box.';
 $string['present'] = 'Present';
@@ -170,8 +194,8 @@ $string['showtargetphrases'] = 'Show target phrases?';
 $string['showtextstats_help'] = 'If this option is enabled, statistics about the text will be shown.';
 $string['showtextstats'] = 'Show text statistics?';
 $string['showtostudentsonly'] = 'Yes, show to students only';
-$string['showtoteachersonly'] = 'Yes, show to teachers only';
 $string['showtoteachersandstudents'] = 'Yes, show to teachers and students';
+$string['showtoteachersonly'] = 'Yes, show to teachers only';
 $string['targetphrase_help'] = 'Specify the grade that will be added if this target phrase appears in the essay.
 
 > **e.g.** If [Finally] is used, award [10% of the question grade.]

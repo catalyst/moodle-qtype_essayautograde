@@ -85,15 +85,71 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         $medium_text_options = array('size' => 5,  'style' => 'width: auto');
         $long_text_options   = array('size' => 10, 'style' => 'width: auto');
 
+        // Cache span element to act as linebreak in checkbox lists.
+        $linebreak = \html_writer::tag('span', '', ['class' => 'w-100']);
+
         // cache options for show/hide elements
         $showhide_options = $this->get_showhide_options($plugin);
 
         // cache options for form elements to select a grade
         $grade_options = $this->get_grade_options($plugin);
 
-        /////////////////////////////////////////////////
+        // cache options for form elements to select a grade
+        $divisor_options = $this->get_divisor_options($plugin);
+
+        /*////////////////////////////////////////
         // add main form elements
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
+
+        // AI is only available from Moodle 4.5.
+        $providers = $this->get_ai_providers();
+        if (is_array($providers)) {
+
+            // Change the text on the "Grader Information" header to "AI Settings".
+            $name = 'graderinfoheader';
+            if ($mform->elementExists($name)) {
+                $element = $mform->getElement($name);
+                $element->setText(get_string('aisettings', $plugin));
+            }
+
+            // Change the label on "Information for graders" element to "AI prompt".
+            $name = 'graderinfo';
+            if ($mform->elementExists($name)) {
+                $element = $mform->getElement($name);
+                $element->setLabel(get_string('aiprompt', $plugin));
+                $mform->addHelpButton($name, 'aiprompt', $plugin);
+            }
+
+            if (empty($providers)) {
+                // No AI assistants are enabled for text generation.
+                $name = 'aiassistant';
+                $label = get_string($name, $plugin);
+                $mform->addElement('hidden', $name, '');
+                $mform->setType($name, PARAM_ALPHANUMEXT);
+                // Show warning message.
+                $text = get_string($name.'notenabled', $plugin);
+                $mform->addElement('static', '', $label, $text);
+            } else {
+                $name = 'aiassistant';
+                $label = get_string($name, $plugin);
+                $providers = array_merge(['' => get_string('none')], $providers);
+                $mform->addElement('select', $name, $label, $providers);
+                $mform->addHelpButton($name, $name, $plugin);
+                $mform->setType($name, PARAM_ALPHANUMEXT);
+                $mform->setDefault($name, $this->get_my_default_value($name, 0));
+                // Move the "aiassistant" element before the "graderinfo" (AI prompt) textarea.
+                if ($mform->elementExists('graderinfo')) {
+                    $mform->insertElementBefore($mform->removeElement($name, false), 'graderinfo');
+                }
+
+                $name = 'aipercent';
+                $label = get_string($name, $plugin);
+                $mform->addElement('select', $name, $label, $grade_options);
+                $mform->addHelpButton($name, $name, $plugin);
+                $mform->setType($name, PARAM_INT);
+                $mform->setDefault($name, $this->get_my_default_value($name, 0));
+            }
+        }
 
         $name = 'autograding';
         $label = get_string($name, $plugin);
@@ -156,7 +212,7 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         foreach ($options as $value => $text) {
             $elements[] = $mform->createElement('checkbox', $name."[$value]",  '', $text);
         }
-        $mform->addGroup($elements, $name, $label, html_writer::empty_tag('br'), false);
+        $mform->addGroup($elements, $name, $label, $linebreak, false);
         $mform->addHelpButton($name, $name, $plugin);
         $mform->disabledIf($name, 'enableautograde', 'eq', 0);
         $mform->disabledIf($name, 'showtextstats', 'eq', $this->plugin_constant('SHOW_NONE'));
@@ -173,9 +229,9 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
             //$mform->setDefault($name."[$value]", in_array($value, $defaults));
         }
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////
         // add grade bands
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
 
         $name = 'gradebands';
         $label = get_string($name, $plugin);
@@ -200,9 +256,9 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
 
         $this->add_repeat_gradebands($mform, $plugin, $short_text_options, $long_text_options, $grade_options);
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////
         // add target phrases
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
 
         $name = 'targetphrases';
         $label = get_string($name, $plugin);
@@ -218,11 +274,11 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         $mform->disabledIf($name, 'enableautograde', 'eq', 0);
         $mform->disabledIf($name, 'itemtype', 'eq', $this->plugin_constant('ITEM_TYPE_FILES'));
 
-        $this->add_repeat_targetphrases($mform, $plugin, $short_text_options, $long_text_options, $grade_options);
+        $this->add_repeat_targetphrases($mform, $plugin, $short_text_options, $long_text_options, $grade_options, $divisor_options);
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////
         // add common errors
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
 
         $name = 'commonerrors';
         $label = get_string($name, $plugin);
@@ -274,9 +330,9 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         $mform->disabledIf($name, 'enableautograde', 'eq', 0);
         $mform->addHelpButton($name, $name, $plugin);
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////////////
         // Insert responsesample after responsetemplate.
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////////////*/
 
         $name = 'responsesample';
         $label = get_string($name, $plugin);
@@ -287,11 +343,26 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         ), array_search($i + 1, $mform->_elementIndex));
         $mform->addHelpButton($name, $name, $plugin);
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////////////
+        // Insert allowsimilarity after responsesample.
+        ////////////////////////////////////////////////*/
+
+        $name = 'allowsimilarity';
+        $label = get_string($name, $plugin);
+        $options = $this->get_allowsimilarity_options($plugin);
+        $i = $mform->_elementIndex['responsesample'];
+        $mform->insertElementBefore($mform->createElement(
+            'select', $name, $label, $options
+        ), array_search($i + 1, $mform->_elementIndex));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setType($name, PARAM_INT);
+        $mform->setDefault($name, $this->get_my_default_value($name, 10));
+
+        /*////////////////////////////////////////////////
         // Add feedback fields (= Combined feedback).
         // and interactive settings (= Multiple tries).
         // Move combined feedback after general feedback.
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////////////*/
 
         $this->add_combined_feedback_fields(false);
         $this->add_interactive_settings(false, false);
@@ -315,24 +386,24 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
             }
         }
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////
         // collapse certain form sections
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
 
-        $names = array('combinedfeedbackhdr',
-                       'responseoptions',
-                       'responsetemplateheader',
-                       'graderinfoheader',
-                       'multitriesheader');
-        foreach ($names as $name) {
+        $names = array('combinedfeedbackhdr' => false,
+                       'responseoptions' => false,
+                       'responsetemplateheader' => false,
+                       'graderinfoheader' => empty($providers) ? false : true,
+                       'multitriesheader' => false);
+        foreach ($names as $name => $expanded) {
             if ($mform->elementExists($name)) {
-                $mform->setExpanded($name, false);
+                $mform->setExpanded($name, $expanded);
             }
         }
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////
         // reduce vertical height of textareas
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
 
         $names = array('questiontext',
                        'generalfeedback',
@@ -362,9 +433,9 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         $question = $this->data_preprocessing_combined_feedback($question);
         $question = $this->data_preprocessing_hints($question, false, false);
 
-        /////////////////////////////////////////////////
+        /*//////////////////////////////////////////////
         // add fields from qtype_essayautograde_options
-        /////////////////////////////////////////////////
+        //////////////////////////////////////////////*/
 
         if (empty($question->options)) {
             return $question;
@@ -374,7 +445,7 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         $names = array('enableautograde', 'itemtype', 'itemcount',
                        'showfeedback', 'showcalculation', 'showtextstats',
                        'showgradebands', 'addpartialgrades', 'showtargetphrases',
-                       'errorcmid', 'errorpercent');
+                       'errorcmid', 'errorpercent', 'aipercent');
         foreach ($names as $name) {
             if (! isset($question->options->$name)) {
                 $question->options->$name = 0;
@@ -409,14 +480,15 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
             $question->textstatitems[$value] = array_key_exists($value, $question->textstatitems);
         }
 
-        /////////////////////////////////////////////////
+        /*////////////////////////////////////////
         // add fields from question_answers
-        /////////////////////////////////////////////////
+        ////////////////////////////////////////*/
 
         $question->bandcount = array();
         $question->bandpercent = array();
         $question->phrasematch = array();
         $question->phrasepercent = array();
+        $question->phrasedivisor = array();
         $question->phrasefullmatch = array();
         $question->phrasecasesensitive = array();
         $question->phraseignorebreaks = array();
@@ -437,7 +509,10 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
 
         foreach ($question->options->answers as $id => $answer) {
 
-            $fraction = intval($answer->fraction);
+            $fraction = sprintf('%.02f', $answer->fraction);
+            list($fraction, $divisor) = explode('.', $fraction);
+            $fraction = intval($fraction);
+
             $answer->type = ($fraction & $ANSWER_TYPE);
             $answer->phrasefullmatch = (($fraction & $ANSWER_FULL_MATCH) ? 1 : 0);
             $answer->phrasecasesensitive = (($fraction & $ANSWER_CASE_SENSITIVE) ? 1 : 0);
@@ -452,6 +527,7 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
                 case $ANSWER_TYPE_PHRASE:
                     $question->phrasematch[] = $answer->feedback;
                     $question->phrasepercent[] = $answer->feedbackformat;
+                    $question->phrasedivisor[] = intval($divisor);
                     $question->phrasefullmatch[] = $answer->phrasefullmatch;
                     $question->phrasecasesensitive[] = $answer->phrasecasesensitive;
                     $question->phraseignorebreaks[] = $answer->phraseignorebreaks;
@@ -527,6 +603,21 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
     }
 
     /**
+     * Get array of similarity threshold percentages
+     *
+     * @param string $plugin name
+     * @return array(value => percent)
+     */
+    protected function get_allowsimilarity_options($plugin) {
+        $options = array();
+        $options[0] = get_string('no');
+        for ($i=5; $i<=100; $i+=5) {
+            $options[$i] = get_string('allowsimilaritypercent', $plugin, $i);
+        }
+        return $options;
+    }
+
+    /**
      * Get array of show/hide options
      *
      * @param string $plugin name
@@ -548,10 +639,89 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
     protected function get_grade_options($plugin) {
         $options = array();
         for ($i=0; $i<=100; $i++) {
-            $options[$i] = get_string('percentofquestiongrade', $plugin, $i);
+            $options[$i] = "$i%";
         }
         return $options;
     }
+
+    /**
+     * Get array of grade options
+     *
+     * @param string $plugin name
+     * @return array(grade => description)
+     */
+    protected function get_divisor_options($plugin) {
+        $options = array();
+        for ($i=1; $i<=20; $i++) {
+            if ($i == 1) {
+                $options[$i] = get_string('phrasepercentexactly', $plugin);
+            } else {
+                $options[$i] = get_string('phrasepercentdividedby', $plugin, $i);
+            }
+        }
+        return $options;
+    }
+
+    /**
+     * Retrieves available AI providers for the generate_text action.
+     *
+     * This method checks whether the Moodle core AI functionality exists.
+     * If it does, it retrieves a list of AI providers that support the
+     * `generate_text` action and returns them as an associative array
+     * where the keys are provider names and the values are localized
+     * provider names.
+     *
+     * In Moodle 4.5 the "get_providers_for_actions()" method was static,
+     * but in 5.0, it was changed to non-static. To maintain compatibility
+     * with both versions, PHP's ReflectionMethod is used to detect whether
+     * the target method is static or not, and calls it appropriately.
+     *
+     * @return array|false An associative array of AI provider names with their localized names,
+     *                     or false if the AI manager class or target method does not exist.
+     */
+    protected function get_ai_providers() {
+        global $DB;
+
+        // Define the PHP class and method that we will use.
+        $managerclass = '\\core_ai\\manager';
+        $actionclass = '\\core_ai\\aiactions\\generate_text';
+        $method = 'get_providers_for_actions';
+    
+        // Moodle <= 4.5 had no core AI functionality.
+        if (!class_exists($managerclass)) {
+            return false;
+        }
+    
+        // Check if the method exists - it should !!
+        if (!method_exists($managerclass, $method)) {
+            return false;
+        }
+    
+        // Initialize the array of options.
+        $options = [];
+
+        // Extract action from class name.
+        $action = trim($actionclass, '\\');
+    
+        $reflection = new \ReflectionMethod($managerclass, $method);
+        if ($reflection->isStatic()) {
+            // Moodle 4.5 and earlier
+            $providers = $managerclass::$method([$action], true);
+        } else {
+            // Moodle 5.0 and later - needs an instance
+            // and furthermore, that instance needs $DB.
+            $manager = new $managerclass($DB);
+            $providers = $manager->$method([$action], true);
+        }
+    
+        foreach ($providers[$action] as $provider) {
+            $name = $provider->get_name();
+            $options[$name] = get_string('pluginname', $name);
+        }
+    
+        return $options;
+    }
+
 
     /**
      * Get array of full match options
@@ -664,19 +834,22 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         // Add group of grade bands
         $group_elements = array();
 
+        $group_elements[] = $mform->createElement('html', get_string('bandtext1', $plugin));
+
         $name = 'bandcount';
-        $label = get_string($name, $plugin);
-        $group_elements[] = $mform->createElement('text', $name, $label, $short_text_options);
+        $group_elements[] = $mform->createElement('text', $name, '', $short_text_options);
         $repeat_options[$name] = array('type' => PARAM_INT);
+
+        $group_elements[] = $mform->createElement('html', get_string('bandtext2', $plugin));
 
         $name = 'bandpercent';
-        $label = get_string($name, $plugin);
-        $group_elements[] = $mform->createElement('select', $name, $label, $grade_options);
+        $group_elements[] = $mform->createElement('select', $name, '', $grade_options);
         $repeat_options[$name] = array('type' => PARAM_INT);
 
+        $group_elements[] = $mform->createElement('html', get_string('bandtext3', $plugin));
+
         $name = 'gradeband';
-        $label = get_string($name, $plugin);
-        $repeat_elements[] = $mform->createElement('group', $name, $label, $group_elements, ' ', false);
+        $repeat_elements[] = $mform->createElement('group', $name, '', $group_elements, ' ', false);
         $repeat_options[$name] = array('helpbutton' => array($name, $plugin),
                                        'disabledif' => array('enableautograde', 'eq', 0));
         $this->add_repeat_elements($mform, 'band', $repeat_elements, $repeat_options, $name);
@@ -698,7 +871,7 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
      * @param array $grade_options
      * @return void, but will update $mform
      */
-    protected function add_repeat_targetphrases($mform, $plugin, $short_text_options, $long_text_options, $grade_options) {
+    protected function add_repeat_targetphrases($mform, $plugin, $short_text_options, $long_text_options, $grade_options, $divisor_options) {
 
         $repeat_elements = array();
         $repeat_options = array();
@@ -706,15 +879,25 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         // add group of target phrases
         $group_elements = array();
 
+        $group_elements[] = $mform->createElement('html', get_string('phrasetext1', $plugin));
+
         $name = 'phrasematch';
-        $label = get_string($name, $plugin);
-        $group_elements[] = $mform->createElement('text', $name, $label, $long_text_options);
+        $group_elements[] = $mform->createElement('text', $name, '', $long_text_options);
         $repeat_options[$name] = array('type' => PARAM_TEXT);
 
+        $group_elements[] = $mform->createElement('html', get_string('phrasetext2', $plugin));
+
         $name = 'phrasepercent';
-        $label = get_string($name, $plugin);
-        $group_elements[] = $mform->createElement('select', $name, $label, $grade_options);
+        $group_elements[] = $mform->createElement('select', $name, '', $grade_options);
         $repeat_options[$name] = array('type' => PARAM_INT);
+
+        $group_elements[] = $mform->createElement('html', get_string('phrasetext3', $plugin));
+
+        $name = 'phrasedivisor';
+        $group_elements[] = $mform->createElement('select', $name, '', $divisor_options);
+        $repeat_options[$name] = array('type' => PARAM_INT);
+
+        $group_elements[] = $mform->createElement('html', get_string('phrasetext4', $plugin));
 
         $name = 'targetphrase';
         $label = get_string($name, $plugin);
@@ -755,7 +938,6 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
      */
     protected function add_repeat_elements($mform, $type, $elements, $options, $name) {
         $types = $type.'s';
-        $TYPE = strtoupper($type);
         $plugin = 'qtype_essayautograde'; // $this->plugin_name();
 
         // cache element names
@@ -764,7 +946,7 @@ class qtype_essayautograde_edit_form extends qtype_essay_edit_form {
         $addtypescount = $addtypes.'count';
         $addtypesgroup = $addtypes.'group';
 
-        $repeats = $this->plugin_constant('ANSWER_TYPE_'.$TYPE); // type
+        $repeats = $this->plugin_constant('ANSWER_TYPE_'.strtoupper($type));
         $repeats = $this->get_answer_repeats($this->question, $repeats);
 
         $count = optional_param($addtypescount, self::NUM_ITEMS_ADD, PARAM_INT);
